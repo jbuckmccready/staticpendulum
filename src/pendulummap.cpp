@@ -31,8 +31,6 @@
 #include "lodepng/lodepng.h"
 
 PendulumMap::PendulumMap() :
-  m_midConvergeColor{0, 0, 0, 255},
-  m_outOfBoundsColor{255, 255, 255, 255},
   m_resolution{0.1},
   m_xStart{-10.0},
   m_yStart{-10.0},
@@ -45,6 +43,8 @@ PendulumMap::PendulumMap() :
   m_timeTolerance{5.0},
   m_progress{0}
 {
+  m_midConvergeColor = RGBAColor{ 0, 0, 0, 255 };
+  m_outOfBoundsColor = RGBAColor{ 255, 255, 255, 255 };
   m_attractorColorTable.emplace_back(RGBAColor{255, 140, 0, 255});
   m_attractorColorTable.emplace_back(RGBAColor{30, 144, 255, 255});
   m_attractorColorTable.emplace_back(RGBAColor{178, 34, 34, 255});
@@ -174,7 +174,7 @@ void PendulumMap::clearAttractorColors()
 void PendulumMap::launchProgressBar()
 {
   bool done = false;
-  const std::chrono::milliseconds waitTime(20);
+  const std::chrono::milliseconds waitTime(10);
   unsigned long long loopCount = 0;
   const unsigned int pointCount = m_rows*m_cols;
   float percentProgress = 0.0;
@@ -182,9 +182,6 @@ void PendulumMap::launchProgressBar()
   progressBar.reserve(25);
   std::string spaceFill(26, ' ');
   std::ostringstream percentStrStream;
-  std::string systemCommand;
-  int systemReturn;
-
 
   std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
   startTime = std::chrono::system_clock::now();
@@ -203,12 +200,7 @@ void PendulumMap::launchProgressBar()
 
       // create percent progress string and output to system shell
       percentStrStream << std::fixed << std::setprecision(2) << percentProgress;
-      systemCommand = "printf \"\\r" + progressBar + spaceFill + percentStrStream.str() + "%%\"";
-      systemReturn = std::system(systemCommand.c_str());
-
-      // check for failed system out
-      if(systemReturn != 0)
-        std::cout << "Unable to utilize system call for progress bar. System error " << systemReturn << ". Integration continuing...\n";
+      std::cout << "\r" + progressBar + spaceFill + percentStrStream.str() + "%";
 
       // clear string stream for next percent value
       percentStrStream.str("");
@@ -227,12 +219,8 @@ void PendulumMap::launchProgressBar()
           progressBar.push_back('#');
           spaceFill.pop_back();
         }
-      systemCommand = "printf \"\\r" + progressBar + spaceFill + "100.00" + "%%\"";
-      systemReturn = std::system(systemCommand.c_str());
 
-      if(systemReturn != 0)
-        std::cout << "\nIntegration complete. Fix system error " << systemReturn << " to generate progress bar for future integrations.\n";
-
+      std::cout << "\r" + progressBar + spaceFill + "100.00" + "%";
       std::cout << "\nDone! Integration took " << elapsedSeconds.count() << " seconds.\n";
     }
     ++loopCount;

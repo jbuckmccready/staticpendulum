@@ -26,7 +26,7 @@
 #define READCONFIG_HPP
 #include <string>
 #include <vector>
-#include <pendulummap.hpp>
+#include "pendulummap.hpp"
 
 double doubleParameterFromConfig(const std::string &configString, const std::string &parameterName, double defaultValue);
 void fillAttractorsFromConfig(const std::string &fileString, const std::string &parameterName,
