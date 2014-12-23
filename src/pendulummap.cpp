@@ -200,7 +200,7 @@ void PendulumMap::launchProgressBar()
 
       // create percent progress string and output to system shell
       percentStrStream << std::fixed << std::setprecision(2) << percentProgress;
-      std::cout << "\r" + progressBar + spaceFill + percentStrStream.str() + "%";
+      std::cout << "\r" + progressBar + spaceFill + percentStrStream.str() + "%" << std::flush;
 
       // clear string stream for next percent value
       percentStrStream.str("");
