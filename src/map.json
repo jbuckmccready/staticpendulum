@@ -1,0 +1,38 @@
+{
+    "system": {
+        "distance": 0.05,
+        "mass": 1.0,
+        "gravity": 9.8,
+        "drag": 0.2,
+        "length": 0.05,
+        "attractors": [
+            {"X": -0.5, "Y": 0.86602540378, "Z": 1.0},
+            {"X": -0.5, "Y": -0.86602540378, "Z": 1.0},
+            {"X": -0.5, "Y": 0.0, "Z": 1.0}
+        ]
+    },
+    "map": { 
+        "xStart": -10.0,
+        "yStart": -10.0,
+        "xEnd": 10.0,
+        "yEnd": 10.0,
+        "resolution": 0.05,
+        "attractorPositionTolerance": 0.5,
+        "midPositionTolerance": 0.1,
+        "timeTolerance": 5.0,
+        "attractorColors": [
+            {"r": 255, "g": 140, "b": 0, "a": 255},
+            {"r": 30, "g": 144, "b": 255, "a": 255},
+            {"r": 178, "g": 34, "b": 34, "a": 255}
+        ],
+        "middleConvergeColor": {"r": 0, "g": 0, "b": 0, "a": 255},
+        "outOfBoundsColor":  {"r": 255, "g": 255, "b": 255, "a": 255}
+    },
+    "integration": {
+        "relativeTolerance": 1e-6,
+        "absoluteTolerance": 1e-6,
+        "maximumStepSize": 0.1,
+        "startingStepSize": 0.001,
+        "threadCount": 8
+    }
+}}

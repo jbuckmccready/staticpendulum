@@ -28,6 +28,7 @@
 #include "pendulummap.hpp"
 #include "pendulumsystem.hpp"
 #include "readconfig.hpp"
+#include "jsoncpp/json.h"
 
 #include <iostream>
 #include <fstream>
@@ -35,13 +36,14 @@
 #include <iomanip>
 #include <regex>
 
-
-int main(int argc, char *argv[])
-{
-  if(argc != 2 && argc != 3) {
-    std::cout << "To integrate a map you must supply a single map .cfg file and output image file name." << std::endl;
-    std::cout << "Example use of the program: \"$staticpendulum mymapconfig.cfg mymapimage.png\"" << std::endl;
-    return 0;
+int main(int argc, char *argv[]) {
+  if (argc != 2 && argc != 3) {
+    std::cout << "To integrate a map you must supply a single parameters "
+                 "configuration json file "
+                 "and output image file name." << std::endl;
+    std::cout << "Example use of the program: \"$staticpendulum "
+                 "parameters.json mymapimage.png\"" << std::endl;
+    return 1;
   }
 
   std::string configFileName = argv[1];
@@ -51,86 +53,155 @@ int main(int argc, char *argv[])
   std::stringstream stringBuffer;
   stringBuffer << file.rdbuf();
   std::string configString = stringBuffer.str();
+  file.close();
+  Json::Value root;
+  Json::Reader reader;
+  bool parsingSuccessful = reader.parse(configString, root);
+  if (!parsingSuccessful) {
+    std::cout << "Failed to parse configuration\n"
+              << reader.getFormattedErrorMessages();
+    return 1;
+  }
 
-  // system parameters
-  double distance = doubleParameterFromConfig(configString, "distance", 0.05);
-  double mass = doubleParameterFromConfig(configString, "mass", 1.0);
-  double gravity = doubleParameterFromConfig(configString, "gravity", 9.8);
-  double drag = doubleParameterFromConfig(configString, "drag", 0.2);
-  double length = doubleParameterFromConfig(configString, "length", 10.0);
+  std::cout << "\n******************************\n";
+  std::cout << "SYSTEM PARAMETERS\n";
+  std::cout << "******************************\n";
+  double pendulumHeight = root["system"]["distance"].asDouble();
+  double pendulumMass = root["system"]["mass"].asDouble();
+  double gravity = root["system"]["gravity"].asDouble();
+  double drag = root["system"]["drag"].asDouble();
+  double pendulumLength = root["system"]["length"].asDouble();
+  std::cout << "Distance: " << pendulumHeight << "\nMass: " << pendulumMass
+            << "\nGravity: " << gravity << "\nDrag: " << drag
+            << "\nLength: " << pendulumLength << "\n";
   std::vector<PendulumSystem::Attractor> attractors;
-  std::vector<PendulumSystem::Attractor> defaultAttractors;
-  defaultAttractors.emplace_back(PendulumSystem::Attractor{-0.5, std::sqrt(3.0)/2.0, 1.0});
-  defaultAttractors.emplace_back(PendulumSystem::Attractor{-0.5, -std::sqrt(3.0)/2.0, 1.0});
-  defaultAttractors.emplace_back(PendulumSystem::Attractor{1.0, 0.0, 1.0});
-  fillAttractorsFromConfig(configString, "attractors", defaultAttractors, attractors);
 
-  // map parameters
-  double x_start = doubleParameterFromConfig(configString, "x_start", -10.0);
-  double y_start = doubleParameterFromConfig(configString, "y_start", -10.0);
-  double x_end = doubleParameterFromConfig(configString, "x_end", 10.0);
-  double y_end = doubleParameterFromConfig(configString, "y_end", 10.0);
-  double resolution = doubleParameterFromConfig(configString, "resolution", 0.05);
-  double attractor_position_tolerance = doubleParameterFromConfig(configString, "attractor_position_tolerance", 0.5);
-  double mid_position_tolerance = doubleParameterFromConfig(configString, "mid_position_tolerance", 0.1);
-  double time_tolerance = doubleParameterFromConfig(configString, "time_tolerance", 5.0);
-  double starting_step_size = doubleParameterFromConfig(configString, "starting_step_size", 0.001);
+  const Json::Value configAttractors = root["system"]["attractors"];
+
+  for (unsigned int i = 0; i < configAttractors.size(); ++i) {
+    std::cout << "Attractor[" << i << "]: ("
+              << configAttractors[i]["X"].asDouble() << ", "
+              << configAttractors[i]["Y"].asDouble() << ", "
+              << configAttractors[i]["Z"].asDouble() << ")\n";
+    attractors.emplace_back(
+        PendulumSystem::Attractor{configAttractors[i]["X"].asDouble(),
+                                  configAttractors[i]["Y"].asDouble(),
+                                  configAttractors[i]["Z"].asDouble()});
+  }
+
+  std::cout << "\n******************************\n";
+  std::cout << "MAP PARAMETERS\n";
+  std::cout << "******************************\n";
+  double x_start = root["map"]["xStart"].asDouble();
+  double y_start = root["map"]["yStart"].asDouble();
+  double x_end = root["map"]["xEnd"].asDouble();
+  double y_end = root["map"]["yEnd"].asDouble();
+  double resolution = root["map"]["resolution"].asDouble();
+  double attractor_position_tolerance =
+      root["map"]["attractorPositionTolerance"].asDouble();
+  double mid_position_tolerance =
+      root["map"]["midPositionTolerance"].asDouble();
+  double time_tolerance = root["map"]["timeTolerance"].asDouble();
+  double starting_step_size = root["map"]["startingStepSize"].asDouble();
+  std::cout << "xStart: " << x_start << "\nyStart: " << y_start
+            << "\nxEnd: " << x_end << "\nyEnd: " << y_end
+            << "\nresolution: " << resolution
+            << "\nattractorPositionTolerance: " << attractor_position_tolerance
+            << "\nmidPositionTolerance: " << mid_position_tolerance
+            << "\ntimeTolerance: " << time_tolerance
+            << "\nstartingStepSize: " << starting_step_size << "\n";
 
   std::vector<PendulumMap::RGBAColor> attractor_colors;
-  std::vector<PendulumMap::RGBAColor> defaultColors;
-  defaultColors.emplace_back(PendulumMap::RGBAColor{255, 140, 0, 255});
-  defaultColors.emplace_back(PendulumMap::RGBAColor{30, 144, 255, 255});
-  defaultColors.emplace_back(PendulumMap::RGBAColor{178, 34, 34, 255});
-  fillColorsFromConfig(configString, "attractor_colors", defaultColors, attractor_colors);
+  const Json::Value configColors = root["map"]["attractorColors"];
 
-  std::vector<PendulumMap::RGBAColor> middle_converge_color;
-  std::vector<PendulumMap::RGBAColor> defaultMidConvergeColor;
-  defaultMidConvergeColor.emplace_back(PendulumMap::RGBAColor{0, 0, 0, 255});
-  fillColorsFromConfig(configString, "middle_converge_color", defaultMidConvergeColor, middle_converge_color);
+  for (unsigned int i = 0; i < configColors.size(); ++i) {
+    int r = configColors[i]["r"].asInt();
+    int g = configColors[i]["g"].asInt();
+    int b = configColors[i]["b"].asInt();
+    int a = configColors[i]["a"].asInt();
+    std::cout << "AttractorColor[" << i << "]: (" << r << ", " << g << ", " << b
+              << ", " << a << ")\n";
+    attractor_colors.emplace_back(PendulumMap::RGBAColor{
+        static_cast<unsigned char>(r), static_cast<unsigned char>(g),
+        static_cast<unsigned char>(b), static_cast<unsigned char>(a)});
+  }
 
-  std::vector<PendulumMap::RGBAColor> out_of_bounds_color;
-  std::vector<PendulumMap::RGBAColor> defaultOutOfBoundsColor;
-  defaultOutOfBoundsColor.emplace_back(PendulumMap::RGBAColor{255, 255, 255, 255});
-  fillColorsFromConfig(configString, "out_of_bounds_color", defaultOutOfBoundsColor, out_of_bounds_color);
+  int midR = root["map"]["middleConvergeColor"]["r"].asInt();
+  int midG = root["map"]["middleConvergeColor"]["g"].asInt();
+  int midB = root["map"]["middleConvergeColor"]["b"].asInt();
+  int midA = root["map"]["middleConvergeColor"]["a"].asInt();
 
-  // integration parameters
-  double relative_tolerance = doubleParameterFromConfig(configString, "relative_tolerance", 1e-6);
-  double absolute_tolerance = doubleParameterFromConfig(configString, "absolute_tolerance", 1e-6);
-  double maximum_step_size = doubleParameterFromConfig(configString, "maximum_step_size", 0.1);
-  int thread_count = std::lround(doubleParameterFromConfig(configString, "thread_count", 8));
+  std::cout << "middleConvergeColor: (" << midR << ", " << midG << ", " << midB
+            << ", " << midA << ")\n";
 
-  PendulumSystem mySystem;
-  PendulumMap myMap;
-  CashKarp54 myIntegrator;
+  PendulumMap::RGBAColor middle_converge_color{
+      static_cast<unsigned char>(midR), static_cast<unsigned char>(midG),
+      static_cast<unsigned char>(midB), static_cast<unsigned char>(midA)};
+
+  int boundsR = root["map"]["outOfBoundsColor"]["r"].asInt();
+  int boundsG = root["map"]["outOfBoundsColor"]["g"].asInt();
+  int boundsB = root["map"]["outOfBoundsColor"]["b"].asInt();
+  int boundsA = root["map"]["outOfBoundsColor"]["a"].asInt();
+
+  std::cout << "outOfBoundsColor: (" << boundsR << ", " << boundsG << ", "
+            << boundsB << ", " << boundsA << ")\n";
+
+  PendulumMap::RGBAColor out_of_bounds_color{
+      static_cast<unsigned char>(boundsR), static_cast<unsigned char>(boundsG),
+      static_cast<unsigned char>(boundsB), static_cast<unsigned char>(boundsA)};
+
+  std::cout << "\n******************************\n";
+  std::cout << "INTEGRATION PARAMETERS\n";
+  std::cout << "******************************\n";
+  double relative_tolerance =
+      root["integration"]["relativeTolerance"].asDouble();
+  double absolute_tolerance =
+      root["integration"]["absoluteTolerance"].asDouble();
+  double maximum_step_size = root["integration"]["maximumStepSize"].asDouble();
+  int thread_count = root["integration"]["threadCount"].asInt();
+  std::cout << "relativeTolerance: " << relative_tolerance
+            << "\nabsoluteTolerance: " << absolute_tolerance
+            << "\nmaximumStepSize: " << maximum_step_size
+            << "\nthreadCount: " << thread_count << "\n";
+
+  PendulumSystem pendulumSystem;
+  PendulumMap pendulumMap;
+  CashKarp54 pendulumIntegrator;
 
   // set system
-  mySystem.DISTANCE = distance;
-  mySystem.MASS = mass;
-  mySystem.GRAVITY = gravity;
-  mySystem.DRAG = drag;
-  mySystem.LENGTH = length;
-  mySystem.clearAttractors();
+  pendulumSystem.DISTANCE = pendulumHeight;
+  pendulumSystem.MASS = pendulumMass;
+  pendulumSystem.GRAVITY = gravity;
+  pendulumSystem.DRAG = drag;
+  pendulumSystem.LENGTH = pendulumLength;
+  pendulumSystem.clearAttractors();
   for (const auto &attractor : attractors) {
-    mySystem.addAttractor(attractor.xPosition, attractor.yPosition, attractor.forceCoeff);
+    pendulumSystem.addAttractor(attractor.xPosition, attractor.yPosition,
+                                attractor.forceCoeff);
   }
 
   // set map
-  myMap.setMapArea(x_start, x_end, y_start, y_end, resolution);
-  myMap.setConvergeTolerance(attractor_position_tolerance, mid_position_tolerance, time_tolerance);
-  myMap.setStartingStepSize(starting_step_size);
-  myMap.clearAttractorColors();
-  for(const auto &color : attractor_colors) {
-    myMap.addAttractorColor(color.r, color.g, color.b, color.a);
+  pendulumMap.setMapArea(x_start, x_end, y_start, y_end, resolution);
+  pendulumMap.setConvergeTolerance(attractor_position_tolerance,
+                                   mid_position_tolerance, time_tolerance);
+  pendulumMap.setStartingStepSize(starting_step_size);
+  pendulumMap.clearAttractorColors();
+  for (const auto &color : attractor_colors) {
+    pendulumMap.addAttractorColor(color.r, color.g, color.b, color.a);
   }
-  myMap.setMidConvergeColor(middle_converge_color[0].r, middle_converge_color[0].g, middle_converge_color[0].b, middle_converge_color[0].a);
-  myMap.setOutOfBoundsColor(out_of_bounds_color[0].r, out_of_bounds_color[0].g, out_of_bounds_color[0].b, out_of_bounds_color[0].a);
+  pendulumMap.setMidConvergeColor(
+      middle_converge_color.r, middle_converge_color.g, middle_converge_color.b,
+      middle_converge_color.a);
+  pendulumMap.setOutOfBoundsColor(out_of_bounds_color.r, out_of_bounds_color.g,
+                                  out_of_bounds_color.b, out_of_bounds_color.a);
 
   // set integrator
-  myIntegrator.setTolerance(relative_tolerance, absolute_tolerance);
-  myIntegrator.setMaxStepSize(maximum_step_size);
+  pendulumIntegrator.setTolerance(relative_tolerance, absolute_tolerance);
+  pendulumIntegrator.setMaxStepSize(maximum_step_size);
 
   // integrate map and save
-  myMap.parallelIntegrateMap(myIntegrator, mySystem, thread_count);
-  myMap.saveMapPNGImage(imageFileName);
+  pendulumMap.parallelIntegrateMap(pendulumIntegrator, pendulumSystem,
+                                   thread_count);
+  pendulumMap.saveMapPNGImage(imageFileName);
   return 0;
 }
