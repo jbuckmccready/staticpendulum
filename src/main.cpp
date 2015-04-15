@@ -27,14 +27,12 @@
 #include "integrators/cashkarp54.hpp"
 #include "pendulummap.hpp"
 #include "pendulumsystem.hpp"
-#include "readconfig.hpp"
 #include "jsoncpp/json.h"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
-#include <regex>
 
 int main(int argc, char *argv[]) {
   if (argc != 2 && argc != 3) {
