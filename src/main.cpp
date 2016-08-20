@@ -100,14 +100,12 @@ int main(int argc, char *argv[]) {
   double mid_position_tolerance =
       root["map"]["midPositionTolerance"].asDouble();
   double time_tolerance = root["map"]["timeTolerance"].asDouble();
-  double starting_step_size = root["map"]["startingStepSize"].asDouble();
   std::cout << "xStart: " << x_start << "\nyStart: " << y_start
             << "\nxEnd: " << x_end << "\nyEnd: " << y_end
             << "\nresolution: " << resolution
             << "\nattractorPositionTolerance: " << attractor_position_tolerance
             << "\nmidPositionTolerance: " << mid_position_tolerance
-            << "\ntimeTolerance: " << time_tolerance
-            << "\nstartingStepSize: " << starting_step_size << "\n";
+            << "\ntimeTolerance: " << time_tolerance << "\n";
 
   std::vector<PendulumMap::RGBAColor> attractor_colors;
   const Json::Value configColors = root["map"]["attractorColors"];
@@ -156,15 +154,17 @@ int main(int argc, char *argv[]) {
   double absolute_tolerance =
       root["integration"]["absoluteTolerance"].asDouble();
   double maximum_step_size = root["integration"]["maximumStepSize"].asDouble();
+  double starting_step_size = root["integration"]["startingStepSize"].asDouble();
   int thread_count = root["integration"]["threadCount"].asInt();
   std::cout << "relativeTolerance: " << relative_tolerance
             << "\nabsoluteTolerance: " << absolute_tolerance
             << "\nmaximumStepSize: " << maximum_step_size
+            << "\nstartingStepSize: " << starting_step_size
             << "\nthreadCount: " << thread_count << "\n";
 
   PendulumSystem pendulumSystem;
   PendulumMap pendulumMap;
-  CashKarp54 pendulumIntegrator;
+
 
   // set system
   pendulumSystem.DISTANCE = pendulumHeight;
@@ -194,8 +194,10 @@ int main(int argc, char *argv[]) {
                                   out_of_bounds_color.b, out_of_bounds_color.a);
 
   // set integrator
-  pendulumIntegrator.setTolerance(relative_tolerance, absolute_tolerance);
-  pendulumIntegrator.setMaxStepSize(maximum_step_size);
+  auto pendulumIntegrator =
+      [=](const auto &dxdt, auto &x, double &t, double &h){
+    return CashKarp54(dxdt, x, t, h, relative_tolerance, absolute_tolerance, maximum_step_size);
+  };
 
   // integrate map and save
   pendulumMap.parallelIntegrateMap(pendulumIntegrator, pendulumSystem,

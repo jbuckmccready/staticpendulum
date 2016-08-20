@@ -1,14 +1,16 @@
 project(staticpendulum)
 cmake_minimum_required(VERSION 2.8)
-add_compile_options(-std=c++14 -pedantic)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -O3 -ffast-math")
-aux_source_directory(. SRC_LIST)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -target x86_64-w64-mingw32 -Wall -pedantic")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -march=native")
+set(SOURCE
+pendulummap.cpp
+pendulumsystem.cpp
+main.cpp
+)
 add_subdirectory(integrators)
 add_subdirectory(lodepng)
 add_subdirectory(jsoncpp)
-#SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-#SET(BUILD_SHARED_LIBRARIES OFF)
-SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
-add_executable(${PROJECT_NAME} ${SRC_LIST})
-target_link_libraries(staticpendulum integrators lodepng jsoncpp)
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")
+add_executable(${PROJECT_NAME} ${SOURCE})

@@ -25,105 +25,147 @@
 #ifndef CASHKARP54_HPP
 #define CASHKARP54_HPP
 #include <algorithm>
+#include <cmath>
 
 /*!
- * \brief Cash and Karp embedded Runge Kutta order 5(4) adaptive step integrator.
+ * \brief Cash and Karp embedded Runge Kutta order 5(4) adaptive step
+ *integrator.
  *
- * See: J. R. Cash, A. H. Karp. “A Variable Order Runge-Kutta Method for Initial Value Problems with
- * Rapidly Varying Right-Hand Sides.” ACM Transactions on Mathematical Software, Vol. 16, No. 3, 1990.
+ * See: J. R. Cash, A. H. Karp. “A Variable Order Runge-Kutta Method for Initial
+ *Value Problems with
+ * Rapidly Varying Right-Hand Sides.” ACM Transactions on Mathematical Software,
+ *Vol. 16, No. 3, 1990.
  *
- * And Wikipedia: http://en.wikipedia.org/wiki/Cash-Karp_method, http://en.wikipedia.org/wiki/List_of_Runge-Kutta_methods
+ * And Wikipedia: http://en.wikipedia.org/wiki/Cash-Karp_method,
+ *http://en.wikipedia.org/wiki/List_of_Runge-Kutta_methods
  */
 
-class CashKarp54
-{
-public:
-  CashKarp54() { }
-  template<typename SystemType, typename StateType>
-  int operator() (const SystemType &dxdt, StateType &x, double &t, double &h) const;
-  void setTolerance(double relativeTolerance, double absoluteTolerance);
-  void setMaxStepSize(double maxStepSize);
-private:
-  // error control parameters
-  double m_relativeTolerance = 1e-6;
-  double m_absoluteTolerance = 1e-6;
-  double m_maxStepSize = 0.1;
+template <typename SystemType, typename StateType>
+inline int CashKarp54(const SystemType &dxdt, StateType &x, double &t,
+                      double &h, double relTol, double absTol,
+                      double maxStepSize) {
+  // Constants from Butcher tableau, see: http://en.wikipedia.org/wiki/Cash-Karp_method
+  // and http://en.wikipedia.org/wiki/Runge-Kutta_methods
+  const double c2 = 1.0 / 5.0;
+  const double c3 = 3.0 / 10.0;
+  const double c4 = 3.0 / 5.0;
+  const double c5 = 1.0;
+  const double c6 = 7.0 / 8.0;
 
-  // coefficients for method
-  static const double c[6];
-  static const double b5th[6];
-  static const double b4th[6];
-  static const double bDiff[6];
-  static const double a[6][5];
-};
+  const double b5th1 = 37.0 / 378.0;
+  const double b5th2 = 0.0;
+  const double b5th3 = 250.0 / 621.0;
+  const double b5th4 = 125.0 / 594.0;
+  const double b5th5 = 0.0;
+  const double b5th6 = 512.0 / 1771.0;
 
+  const double b4th1 = 2825.0 / 27648.0;
+  const double b4th2 = 0.0;
+  const double b4th3 = 18575.0 / 48384.0;
+  const double b4th4 = 13525.0 / 55296.0;
+  const double b4th5 = 277.0 / 14336.0;
+  const double b4th6 = 1.0 / 4.0;
 
+  const double bDiff1 = b5th1 - b4th1;
+  const double bDiff2 = b5th2 - b4th2;
+  const double bDiff3 = b5th3 - b4th3;
+  const double bDiff4 = b5th4 - b4th4;
+  const double bDiff5 = b5th5 - b4th5;
+  const double bDiff6 = b5th6 - b4th6;
 
-//! Performs one step for a given state and system, updates the state, time and step size. Returns 1 if successful, 0 if not; in either case udates the step size.
-template<typename SystemType, typename StateType>
-inline int CashKarp54::operator() (const SystemType &dxdt, StateType &x, double &t, double &h) const
-{
+  const double a21 = 1.0 / 5.0;
+  const double a31 = 3.0 / 40.0;
+  const double a32 = 9.0 / 40.0;
+  const double a41 = 3.0 / 10.0;
+  const double a42 = -9.0 / 10.0;
+  const double a43 = 6.0 / 5.0;
+  const double a51 = -11.0 / 54.0;
+  const double a52 = 5.0 / 2.0;
+  const double a53 = -70.0 / 27.0;
+  const double a54 = 35.0 / 27.0;
+  const double a61 = 1631.0 / 55296.0;
+  const double a62 = 175.0 / 512.0;
+  const double a63 = 575.0 / 13824.0;
+  const double a64 = 44275.0 / 110592.0;
+  const double a65 = 253.0 / 4096.0;
+
   const std::size_t stateSize = x.size();
-  StateType k[6];
-  StateType tempState; // used to store state for next k value and later used for error difference
+  StateType tempState; // used to store state for next k value and later used
+                       // for error difference
 
-  dxdt(x, k[0], t); // fill k1
-
-  for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = x[i]+h*a[1][0]*k[0][i];
-  dxdt(tempState, k[1], t+c[1]*h); // fill k2
+  StateType k1;
+  dxdt(x, k1, t); // fill k1
 
   for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = x[i]+h*(a[2][0]*k[0][i]+a[2][1]*k[1][i]);
-  dxdt(tempState, k[2], t+c[2]*h); // fill k3
+    tempState[i] = x[i] + h * a21 * k1[i];
+  StateType k2;
+  dxdt(tempState, k2, t + c2 * h); // fill k2
 
   for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = x[i]+h*(a[3][0]*k[0][i]+a[3][1]*k[1][i]+a[3][2]*k[2][i]);
-  dxdt(tempState, k[3], t+c[3]*h); // fill k4
+    tempState[i] = x[i] + h * (a31 * k1[i] + a32 * k2[i]);
+  StateType k3;
+  dxdt(tempState, k3, t + c3 * h); // fill k3
 
   for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = x[i]+h*(a[4][0]*k[0][i]+a[4][1]*k[1][i]+a[4][2]*k[2][i]+a[4][3]*k[3][i]);
-  dxdt(tempState, k[4], t+c[4]*h); // fill k5
+    tempState[i] = x[i] + h * (a41 * k1[i] + a42 * k2[i] + a43 * k3[i]);
+  StateType k4;
+  dxdt(tempState, k4, t + c4 * h); // fill k4
 
   for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = x[i]+h*(a[5][0]*k[0][i]+a[5][1]*k[1][i]+a[5][2]*k[2][i]+a[5][3]*k[3][i]+a[5][4]*k[4][i]);
-  dxdt(tempState, k[5], t+c[5]*h); // fill k6
+    tempState[i] =
+        x[i] +
+        h * (a51 * k1[i] + a52 * k2[i] + a53 * k3[i] + a54 * k4[i]);
+  StateType k5;
+  dxdt(tempState, k5, t + c5 * h); // fill k5
+
+  for (std::size_t i = 0; i < stateSize; ++i)
+    tempState[i] = x[i] +
+                   h * (a61 * k1[i] + a62 * k2[i] + a63 * k3[i] +
+                        a64 * k4[i] + a65 * k5[i]);
+  StateType k6;
+  dxdt(tempState, k6, t + c6 * h); // fill k6
 
   StateType order5Solution;
   for (std::size_t i = 0; i < stateSize; ++i)
-    order5Solution[i] = h*(b5th[0]*k[0][i]+b5th[1]*k[1][i]+b5th[2]*k[2][i]+b5th[3]*k[3][i]+b5th[4]*k[4][i]+b5th[5]*k[5][i]);
+    order5Solution[i] =
+        h * (b5th1 * k1[i] + b5th2 * k2[i] + b5th3 * k3[i] +
+             b5th4 * k4[i] + b5th5 * k5[i] + b5th6 * k6[i]);
 
-  // difference between order 4 and 5, used for error check, reusing tempState variable
+  // difference between order 4 and 5, used for error check, reusing tempState
+  // variable
   for (std::size_t i = 0; i < stateSize; ++i)
-    tempState[i] = h*(bDiff[0]*k[0][i]+bDiff[1]*k[1][i]+bDiff[2]*k[2][i]+bDiff[3]*k[3][i]+bDiff[4]*k[4][i]+bDiff[5]*k[5][i]);
+    tempState[i] = h * (bDiff1 * k1[i] + bDiff2 * k2[i] + bDiff3 * k3[i] +
+                        bDiff4 * k4[i] + bDiff5 * k5[i] + bDiff6 * k6[i]);
+
+  StateType potentialSolution;
+  for (std::size_t i = 0; i < stateSize; ++i)
+    potentialSolution[i] = x[i] + order5Solution[i];
 
   // boost odeint syle error step sizing method
   StateType errorValueList;
   for (std::size_t i = 0; i < stateSize; ++i)
-    errorValueList[i] = std::abs(tempState[i]/(m_absoluteTolerance + m_relativeTolerance * (x[i] + order5Solution[i])));
-  double maxErrorValue = *(std::max_element(errorValueList.begin(), errorValueList.end()));
+    errorValueList[i] =
+        std::abs(tempState[i] / (absTol + relTol * (potentialSolution[i])));
+  double maxErrorValue =
+      *(std::max_element(errorValueList.begin(), errorValueList.end()));
 
   // reject step and decrease step size
   if (maxErrorValue > 1.0) {
-    h = h*std::max(0.9*std::pow(maxErrorValue, -0.25), 0.2);
+    h = h * std::max(0.9 * std::pow(maxErrorValue, -0.25), 0.2);
     return 0;
   }
 
-  // use step and increase step size
+  // use the step
+  t += h;
+  for (std::size_t i = 0; i < stateSize; ++i)
+      x[i] = potentialSolution[i];
+
+  // if error is small enough then increase step size
   if (maxErrorValue < 0.5) {
-    t = t+h;
-    for (std::size_t i = 0; i < stateSize; ++i)
-      x[i] = x[i] + order5Solution[i];
-    h = std::min(h*std::min(0.9*std::pow(maxErrorValue, -0.20), 5.0), m_maxStepSize);
-    return 1;
+    h = std::min(h * std::min(0.9 * std::pow(maxErrorValue, -0.20), 5.0),
+                 maxStepSize);
   }
 
-  // else: use step and keep same step size
-  t = t+h;
-  for (std::size_t i = 0; i < stateSize; ++i)
-    x[i] = x[i] + order5Solution[i];
   return 1;
-
-
 }
 #endif // CASHKARP54_HPP
